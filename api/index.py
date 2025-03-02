@@ -33,4 +33,4 @@ app.register_blueprint(auth.auth_bp, url_prefix='/api/auth')
 app.register_blueprint(news.news_bp, url_prefix='/api/news')
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    app.run(debug=True,port=5000)
