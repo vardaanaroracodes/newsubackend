@@ -58,6 +58,8 @@ def google_login():
 
     user_info = resp.json()
     email = user_info.get("email")
+    if not email:  # Check if email is present
+        return jsonify({"msg": "Email not found in user info"}), 400
     print(email)
     user = mongo.db.users.find_one({"email": email})
     if not user:
