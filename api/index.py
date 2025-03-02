@@ -4,6 +4,7 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 from flask import Flask
 from flask_cors import CORS
+from api_routes.newsroutes import news_bp
 from config import Config
 from extensions import mongo, jwt
 from flask_dance.contrib.google import make_google_blueprint
@@ -30,7 +31,7 @@ CORS(app)
 from api_routes import auth, news
 
 app.register_blueprint(auth.auth_bp, url_prefix='/api/auth')
-app.register_blueprint(news.news_bp, url_prefix='/api/news')
+app.register_blueprint(news_bp, url_prefix='/api/news')
 
 if __name__ == '__main__':
     app.run(debug=True)
