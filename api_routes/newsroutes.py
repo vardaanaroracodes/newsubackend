@@ -116,3 +116,35 @@ def clear_conversation():
             'error': 'An error occurred while clearing the conversation',
             'details': str(e)
         }), 500
+
+@news_bp.route('/history', methods=['GET'])
+def get_conversation_history():
+    """
+    API endpoint to get the conversation history
+    
+    Returns:
+        JSON response with the conversation history
+    """
+    # Get the news agent service
+    agent = get_news_agent()
+    if agent is None:
+        return jsonify({
+            'success': False,
+            'error': 'Could not initialize news agent service. Check API keys.'
+        }), 500
+    
+    try:
+        # Get conversation history
+        history = agent.memory.chat_memory.messages
+        return jsonify({
+            'success': True,
+            'history': [{'role': msg.type, 'content': msg.content} for msg in history]
+        })
+        
+    except Exception as e:
+        logger.error(f"Error getting conversation history: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'An error occurred while getting conversation history',
+            'details': str(e)
+        }), 500

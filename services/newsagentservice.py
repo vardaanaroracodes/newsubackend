@@ -98,6 +98,9 @@ class SerperNewsSearchTool:
         return formatted_results
 
 
+from langchain.memory import ConversationBufferMemory
+from langchain.chains import ConversationChain
+
 class NewsAgentService:
     """Service that provides a conversational news agent using LangChain, Gemini, and Serper."""
     
@@ -132,20 +135,21 @@ class NewsAgentService:
             )
         ]
         
-        # Create the agent
-        self._create_agent()
+        # Initialize conversation memory first
+        self.memory = ConversationBufferMemory()
+        self.conversation = ConversationChain(
+            llm=self.llm,
+            memory=self.memory,
+            verbose=True
+        )
         
-        # Initialize conversation history
-        self.conversation_history = []
+        # Create the agent after memory is initialized
+        self._create_agent()
     
     def _create_agent(self):
         """Create the LangChain agent with the appropriate prompt."""
         
-        # Get the ReAct format instructions
-        output_parser = ReActSingleInputOutputParser()
-        format_instructions = output_parser.get_format_instructions()
-        
-        # Create a prompt template
+        # Create a prompt template with the correct ReAct format
         prompt = PromptTemplate.from_template(
             """You are a helpful news assistant that can search for and summarize recent news.
             Always be conversational and friendly in your responses.
@@ -157,28 +161,32 @@ class NewsAgentService:
             4. Be concise yet informative
             
             Available tools: {tools}
-            Tool names: {tool_names}
             
-            {format_instructions}
+            Use the following format:
             
-            Previous conversation:
-            {chat_history}
+            Question: the input question you must answer
+            Thought: you should always think about what to do
+            Action: the action to take, should be one of [{tool_names}]
+            Action Input: the input to the action
+            Observation: the result of the action
+            ... (this Thought/Action/Action Input/Observation can repeat N times)
+            Thought: I now know the final answer
+            Final Answer: the final answer to the original input question
             
-            Human: {input}
+            Begin!
             
-            {agent_scratchpad}
-            
-            Assistant: """
+            Question: {input}
+            {agent_scratchpad}"""
         )
         
-        # Create the agent
+        # Create the agent with explicit input variables
         self.agent = create_react_agent(
             llm=self.llm,
             tools=self.tools,
             prompt=prompt
         )
         
-        # Create the agent executor
+        # Create the agent executor without memory parameter
         self.agent_executor = AgentExecutor.from_agent_and_tools(
             agent=self.agent,
             tools=self.tools,
@@ -186,66 +194,65 @@ class NewsAgentService:
             handle_parsing_errors=True,
             max_iterations=3
         )
-    
-    def generate_response(self, query: str) -> Dict[str, Any]:
+
+    def prepare_context(self, search_results: List[Dict[str, Any]]) -> str:
         """
-        Generate a response to the user's query
+        Prepare context from search results
         
         Args:
-            query (str): The user's question or request
+            search_results (List[Dict[str, Any]]): List of news articles
             
         Returns:
-            Dict[str, Any]: Response containing the agent's answer and context
+            str: Formatted context string
         """
+        if not search_results:
+            return "No relevant news articles found."
+            
+        context = "Here are the relevant news articles:\n\n"
+        
+        for i, article in enumerate(search_results, 1):
+            title = article.get("title", "No title")
+            snippet = article.get("snippet", "No description available")
+            source = article.get("source", "Unknown source")
+            date = article.get("date", "")
+            
+            context += f"{i}. {title}\n"
+            context += f"   {snippet}\n"
+            context += f"   Source: {source}"
+            if date:
+                context += f" | {date}"
+            context += "\n\n"
+            
+        return context
+
+    def generate_response(self, query: str) -> Dict[str, Any]:
+        """Generate a response to the user's query"""
         try:
-            # Add query to conversation history
-            self.conversation_history.append(HumanMessage(content=query))
+            # Use the agent executor with just the query
+            response = self.agent_executor.invoke({"input": query})
             
-            # Convert conversation history to format expected by agent
-            chat_history = "\n".join([
-                f"Human: {msg.content}" if isinstance(msg, HumanMessage) else f"Assistant: {msg.content}"
-                for msg in self.conversation_history[:-1]  # Exclude the latest query
-            ])
+            # Add the interaction to memory
+            self.memory.chat_memory.add_user_message(query)
+            self.memory.chat_memory.add_ai_message(response['output'])
             
-            # Get the ReAct format instructions for this invocation
-            output_parser = ReActSingleInputOutputParser()
-            format_instructions = output_parser.get_format_instructions()
-            
-            # Run the agent
-            result = self.agent_executor.invoke({
-                "input": query,
-                "chat_history": chat_history,
-                "format_instructions": format_instructions
-            })
-            
-            # Get the output
-            response = result.get("output", "I'm sorry, I couldn't process that request.")
-            
-            # Add response to conversation history
-            self.conversation_history.append(AIMessage(content=response))
-            
-            # Limit conversation history
-            if len(self.conversation_history) > 10:
-                self.conversation_history = self.conversation_history[-10:]
+            # Get the latest search results from the tool
+            search_results = self.search_tool.search(query)
             
             return {
-                "response": response,
-                "timestamp": datetime.now().isoformat(),
-                "query": query,
-                "success": True
+                'success': True,
+                'response': response['output'],
+                'sources': search_results
             }
             
         except Exception as e:
             logger.error(f"Error generating response: {e}")
             return {
-                "response": "I'm sorry, I encountered an error while processing your request.",
-                "timestamp": datetime.now().isoformat(),
-                "query": query,
                 "success": False,
+                "response": "I'm sorry, I encountered an error while processing your request.",
                 "error": str(e)
             }
-    
+
     def clear_conversation(self):
         """Clear the conversation history."""
-        self.conversation_history = []
+        self.memory.clear()
         return {"status": "Conversation history cleared"}
