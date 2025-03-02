@@ -15,4 +15,5 @@ class Config:
     GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY'),
     SERPER_API_KEY = os.environ.get('SERPER_API_KEY'),
     LOG_LEVEL = os.environ.get('LOG_LEVEL', 'INFO'),
+    API_KEY = os.environ.get('API_KEY'),
     DEBUG = os.environ.get('FLASK_DEBUG', 'False').lower() in ('true', '1', 't')

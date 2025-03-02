@@ -1,4 +1,5 @@
 from flask import Blueprint, request, jsonify, current_app
+from .auth import require_api_key  # Add this import
 import logging
 import os
 from dotenv import load_dotenv
@@ -45,6 +46,7 @@ def get_news_agent():
     return news_agent
 
 @news_bp.route('/ask', methods=['POST'])
+@require_api_key  # Add decorator
 def ask_news_agent():
     """
     API endpoint to ask questions to the news agent
@@ -86,6 +88,7 @@ def ask_news_agent():
         }), 500
 
 @news_bp.route('/clear', methods=['POST'])
+@require_api_key  # Add decorator
 def clear_conversation():
     """
     API endpoint to clear the conversation history
@@ -118,6 +121,7 @@ def clear_conversation():
         }), 500
 
 @news_bp.route('/history', methods=['GET'])
+@require_api_key  # Add decorator
 def get_conversation_history():
     """
     API endpoint to get the conversation history
