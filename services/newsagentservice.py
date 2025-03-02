@@ -20,12 +20,17 @@ class SerperNewsSearchTool:
     """Tool for searching news using Serper API."""
     
     def __init__(self, api_key):
-        self.api_key = api_key
+        # Convert tuple to string if necessary
+        if isinstance(api_key, tuple):
+            self.api_key = api_key[0]
+        else:
+            self.api_key = api_key
+        print(self.api_key)
         self.headers = {
-            "X-API-KEY": self.api_key,
-            "Content-Type": "application/json"
+            'X-API-KEY': str(self.api_key),  # Ensure string type
+            'Content-Type': 'application/json'
         }
-        self.url = "https://google.serper.dev/news"
+        self.url = "https://google.serper.dev/search"
     
     def search(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
         """
@@ -41,12 +46,20 @@ class SerperNewsSearchTool:
         import requests
         
         try:
-            payload = json.dumps({"q": query})
-            response = requests.post(self.url, headers=self.headers, data=payload)
+            payload = json.dumps({
+                "q": query,
+                "search_type": "news"  # Specify news search type
+            })
+            
+            response = requests.request("POST", self.url, headers=self.headers, data=payload)
             response.raise_for_status()
             
-            results = response.json().get("news", [])
+            data = response.json()
+            
+            # The response structure is different, adjust accordingly
+            results = data.get("organic", [])  # Use 'organic' instead of 'news'
             return results[:limit]
+            
         except Exception as e:
             logger.error(f"Error searching news with Serper: {e}")
             return []
