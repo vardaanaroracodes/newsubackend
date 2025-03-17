@@ -28,7 +28,7 @@ jwt.init_app(app)
 CORS(app)
 
 # Register Blueprints
-from api_routes import auth, news
+from api_routes import auth
 
 app.register_blueprint(auth.auth_bp, url_prefix='/api/auth')
 app.register_blueprint(news_bp, url_prefix='/api/news')
