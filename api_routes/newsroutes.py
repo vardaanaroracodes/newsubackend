@@ -1,23 +1,17 @@
 from flask import Blueprint, request, jsonify, current_app
-from .auth import require_api_key  # Add this import
+from .auth import require_api_key  # need this for server to server authentication
 import logging
 import os
 from dotenv import load_dotenv
 
-# Load environment variables
 load_dotenv()
-
-# Import the news agent service
 from services.newsagentservice import NewsAgentService
 
-# Set up logger
 logger = logging.getLogger(__name__)
 
-# Create blueprint
 news_bp = Blueprint('news', __name__)
 
-# Initialize the news agent service
-news_agent = None
+news_agent = None # Initialize news agent service
 
 def get_news_agent():
     """
@@ -29,15 +23,13 @@ def get_news_agent():
     global news_agent
     
     if news_agent is None:
-        # Get API keys from environment or config
         GOOGLE_API_KEY = current_app.config.get('GOOGLE_API_KEY') or os.getenv('GOOGLE_API_KEY')
         serper_api_key = current_app.config.get('SERPER_API_KEY') or os.getenv('SERPER_API_KEY')
         
         if not GOOGLE_API_KEY or not serper_api_key:
             logger.error("Missing API keys")
             return None
-        
-        # Initialize the news agent service
+       
         news_agent = NewsAgentService(
             GOOGLE_API_KEY=GOOGLE_API_KEY,
             serper_api_key=serper_api_key
@@ -46,7 +38,7 @@ def get_news_agent():
     return news_agent
 
 @news_bp.route('/ask', methods=['POST'])
-@require_api_key  # Add decorator
+@require_api_key #decorator
 def ask_news_agent():
     """
     API endpoint to ask questions to the news agent
@@ -56,7 +48,6 @@ def ask_news_agent():
     Returns:
         JSON response with the agent's answer
     """
-    # Get the news agent service
     agent = get_news_agent()
     if agent is None:
         return jsonify({
@@ -64,7 +55,6 @@ def ask_news_agent():
             'error': 'Could not initialize news agent service. Check API keys.'
         }), 500
     
-    # Get query from request
     data = request.get_json()
     if not data or 'query' not in data:
         return jsonify({
@@ -75,7 +65,7 @@ def ask_news_agent():
     user_query = data['query']
     
     try:
-        # Generate response
+       
         result = agent.generate_response(user_query)
         return jsonify(result)
         
@@ -88,7 +78,8 @@ def ask_news_agent():
         }), 500
 
 @news_bp.route('/clear', methods=['POST'])
-@require_api_key  # Add decorator
+@require_api_key 
+# not in use, for future use.
 def clear_conversation():
     """
     API endpoint to clear the conversation history
@@ -96,7 +87,6 @@ def clear_conversation():
     Returns:
         JSON response indicating success or failure
     """
-    # Get the news agent service
     agent = get_news_agent()
     if agent is None:
         return jsonify({
@@ -105,7 +95,7 @@ def clear_conversation():
         }), 500
     
     try:
-        # Clear conversation
+        
         result = agent.clear_conversation()
         return jsonify({
             'success': True,
@@ -129,7 +119,6 @@ def get_conversation_history():
     Returns:
         JSON response with the conversation history
     """
-    # Get the news agent service
     agent = get_news_agent()
     if agent is None:
         return jsonify({
@@ -138,7 +127,6 @@ def get_conversation_history():
         }), 500
     
     try:
-        # Get conversation history
         history = agent.memory.chat_memory.messages
         return jsonify({
             'success': True,

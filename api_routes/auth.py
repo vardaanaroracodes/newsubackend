@@ -1,14 +1,12 @@
-# api_routes/auth.py
 from flask import Blueprint, request, jsonify,current_app
 from functools import wraps
 from dotenv import load_dotenv
 import os
 
-# Load environment variables
 load_dotenv()
 auth_bp = Blueprint('auth_bp', __name__)
 
-# Hardcoded API key for temporary use
+
 def require_api_key(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
@@ -21,7 +19,7 @@ def require_api_key(f):
             return jsonify({'message': 'Invalid or missing API key'}), 401
     return decorated_function
 
-# Optional: Test route to verify API key authentication
+#Test route to verify API key authentication
 @auth_bp.route('/test', methods=['GET'])
 @require_api_key
 def test_auth():

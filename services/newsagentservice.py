@@ -16,6 +16,10 @@ import json
 
 logger = logging.getLogger(__name__)
 
+"""
+Serper News Search Tool Description:
+1. Api Abstraction 2. Type Safet 3. Rate limiting management
+"""
 class SerperNewsSearchTool:
     """Tool for searching news using Serper API."""
     
@@ -27,10 +31,10 @@ class SerperNewsSearchTool:
             self.api_key = api_key
         print(self.api_key)
         self.headers = {
-            'X-API-KEY': str(self.api_key),  # Ensure string type
+            'X-API-KEY': str(self.api_key),  # Ensure string type****
             'Content-Type': 'application/json'
         }
-        self.url = "https://google.serper.dev/search"
+        self.url = "https://google.serper.dev/search" # goes and searches here(whatever query you perform)
     
     def search(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
         """
@@ -48,29 +52,34 @@ class SerperNewsSearchTool:
         try:
             payload = json.dumps({
                 "q": query,
-                "search_type": "news"  # Specify news search type
+                "search_type": "news" 
             })
             
             response = requests.request("POST", self.url, headers=self.headers, data=payload)
-            response.raise_for_status()
+            response.raise_for_status()#if there is any exception this will trigger
             
             data = response.json()
             
-            # The response structure is different, adjust accordingly
-            results = data.get("organic", [])  # Use 'organic' instead of 'news'
+            #the response structure is different, adjust accordingly
+            results = data.get("organic", [])  #use 'organic' instead of 'news'
             return results[:limit]
             
         except Exception as e:
             logger.error(f"Error searching news with Serper: {e}")
             return []
     
+    """
+    Call here acts as the bridge between langchain 
+    react agent and raw news search
+    Also we are using call because LangChain works on standardized
+    interface which means it gives a string input and demands a string output
+    so call is the best way to do that.
+    """
     def __call__(self, query: str) -> str:
         """
         Call the tool and return formatted results
-        
         Args:
             query (str): The search query
-            
         Returns:
             str: Formatted news results
         """
@@ -101,6 +110,9 @@ class SerperNewsSearchTool:
 from langchain.memory import ConversationBufferMemory
 from langchain.chains import ConversationChain
 
+"""
+Integrates langchain,google gemini and serper api 
+"""
 class NewsAgentService:
     """Service that provides a conversational news agent using LangChain, Gemini, and Serper."""
     
@@ -115,18 +127,15 @@ class NewsAgentService:
         self.GOOGLE_API_KEY = GOOGLE_API_KEY
         self.serper_api_key = serper_api_key
         
-        # Initialize the LLM
         self.llm = ChatGoogleGenerativeAI(
             model="gemini-1.5-flash",
             GOOGLE_API_KEY=self.GOOGLE_API_KEY,
             temperature=0.7,
             convert_system_message_to_human=True
         )
-        
-        # Initialize the search tool
+
         self.search_tool = SerperNewsSearchTool(api_key=self.serper_api_key)
-        
-        # Create LangChain tools
+
         self.tools = [
             Tool(
                 name="NewsSearch",
@@ -134,22 +143,20 @@ class NewsAgentService:
                 description="Useful for searching and finding recent news articles on specific topics. Input should be a search query."
             )
         ]
-        
-        # Initialize conversation memory first
+
         self.memory = ConversationBufferMemory()
         self.conversation = ConversationChain(
             llm=self.llm,
             memory=self.memory,
             verbose=True
         )
-        
-        # Create the agent after memory is initialized
+
         self._create_agent()
     
     def _create_agent(self):
         """Create the LangChain agent with the appropriate prompt."""
         
-        # Create a prompt template with the correct ReAct format
+        # prompt template with the correct ReAct format
         prompt = PromptTemplate.from_template(
             """You are a helpful news assistant that can search for and summarize recent news.
             Always be conversational and friendly in your responses.
@@ -178,15 +185,13 @@ class NewsAgentService:
             Question: {input}
             {agent_scratchpad}"""
         )
-        
-        # Create the agent with explicit input variables
+
         self.agent = create_react_agent(
             llm=self.llm,
             tools=self.tools,
             prompt=prompt
         )
-        
-        # Create the agent executor without memory parameter
+
         self.agent_executor = AgentExecutor.from_agent_and_tools(
             agent=self.agent,
             tools=self.tools,

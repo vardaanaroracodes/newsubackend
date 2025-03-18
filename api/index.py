@@ -24,10 +24,8 @@ app.register_blueprint(google_bp, url_prefix="/login")
 mongo.init_app(app)
 jwt.init_app(app)
 
-# Enable CORS
 CORS(app)
 
-# Register Blueprints
 from api_routes import auth
 
 app.register_blueprint(auth.auth_bp, url_prefix='/api/auth')
