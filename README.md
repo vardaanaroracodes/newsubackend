@@ -21,7 +21,7 @@ This project is a **Conversational AI-powered News Aggregation System** built us
 - **Memory & Workflow Orchestration**: LangChain Agents & Tools
 
 ---
-![System Diagram](assets/news-agent-diagram.png)
+![System Diagram](assets/sd.png)
 
 ##  API Endpoints
 
