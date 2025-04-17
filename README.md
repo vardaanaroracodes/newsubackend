@@ -97,6 +97,198 @@ Headers: { "API_AUTH_KEY": "your-secret-key" }
 
 ---
 
+## Session Management
+
+The API supports persistent chat sessions stored in MongoDB, allowing users to maintain conversations across multiple requests and resume them later.
+
+### Session Features
+
+- **Per-User Sessions**: Each session is associated with a specific user ID
+- **Persistent Memory**: Conversation history stored in MongoDB
+- **Multiple Sessions**: Users can maintain multiple named conversations
+- **Session Security**: Users can only access their own sessions
+
+### Session Endpoints
+
+#### `/news/session/start` (POST)
+
+**Purpose**: Creates a new chat session and returns a session ID.
+
+**Request:**
+
+```json
+POST /news/session/start
+Headers: { "API_AUTH_KEY": "your-secret-key" }
+Body:
+{
+  "user_id": "user123"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "session_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+#### `/news/session/{session_id}/ask` (POST)
+
+**Purpose**: Sends a query within a specific session, maintaining conversation context.
+
+**Request:**
+
+```json
+POST /news/session/550e8400-e29b-41d4-a716-446655440000/ask
+Headers: { "API_AUTH_KEY": "your-secret-key" }
+Body:
+{
+  "user_id": "user123",
+  "query": "What are the latest developments in AI?"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "session_id": "550e8400-e29b-41d4-a716-446655440000",
+  "response": "Recent AI developments include...",
+  "sources": [
+    { "title": "New AI Research", "link": "https://example.com", "source": "TechJournal" }
+  ]
+}
+```
+
+#### `/news/sessions` (GET)
+
+**Purpose**: Lists all sessions for a specific user.
+
+**Request:**
+
+```json
+GET /news/sessions?user_id=user123
+Headers: { "API_AUTH_KEY": "your-secret-key" }
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "sessions": [
+    {
+      "session_id": "550e8400-e29b-41d4-a716-446655440000",
+      "created_at": "2025-04-17T10:30:00Z"
+    },
+    {
+      "session_id": "7397a1d8-979c-4b74-a28d-3c324931ca82",
+      "created_at": "2025-04-16T14:20:00Z"
+    }
+  ]
+}
+```
+
+#### `/news/session/{session_id}/history` (GET)
+
+**Purpose**: Retrieves the conversation history for a specific session.
+
+**Request:**
+
+```json
+GET /news/session/550e8400-e29b-41d4-a716-446655440000/history?user_id=user123
+Headers: { "API_AUTH_KEY": "your-secret-key" }
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "history": [
+    {
+      "role": "user",
+      "content": "What are the latest developments in AI?",
+      "timestamp": "2025-04-17T10:32:00Z"
+    },
+    {
+      "role": "ai",
+      "content": "Recent AI developments include...",
+      "timestamp": "2025-04-17T10:32:05Z"
+    }
+  ]
+}
+```
+
+#### `/news/session/{session_id}/clear` (POST)
+
+**Purpose**: Clears the message history for a specific session.
+
+**Request:**
+
+```json
+POST /news/session/550e8400-e29b-41d4-a716-446655440000/clear
+Headers: { "API_AUTH_KEY": "your-secret-key" }
+Body:
+{
+  "user_id": "user123"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Session cleared"
+}
+```
+
+#### `/news/session/{session_id}/delete` (DELETE)
+
+**Purpose**: Completely deletes a session.
+
+**Request:**
+
+```json
+DELETE /news/session/550e8400-e29b-41d4-a716-446655440000/delete
+Headers: { "API_AUTH_KEY": "your-secret-key" }
+Body:
+{
+  "user_id": "user123"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "message": "Session deleted"
+}
+```
+
+### Session-Aware Standard Endpoints
+
+The standard `/news/ask` endpoint now also supports persistent sessions by automatically creating and using a default session for each user:
+
+```json
+POST /news/ask
+Headers: { "API_AUTH_KEY": "your-secret-key" }
+Body:
+{
+  "user_id": "user123",
+  "query": "Tell me about recent space discoveries"
+}
+```
+
+This will automatically maintain conversation context between requests for the same user.
+
+---
+
 ## How It Works
 
 1️⃣ **User submits a prompt** via the frontend. 2️⃣ **Backend authenticates the request** (checks API key & JWT from Clerk). 3️⃣ **AI extracts keywords** from the query (using Gemini). 4️⃣ **NewsAgentService fetches relevant articles** via Serper API. 5️⃣ **AI summarizes** the news articles and generates a response. 6️⃣ **Response is sent back** to the frontend. 7️⃣ **Conversation history is stored** (optional).
