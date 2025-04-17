@@ -156,7 +156,7 @@ class NewsAgentService:
     def _create_agent(self):
         """Create the LangChain agent with the appropriate prompt."""
         
-        # prompt template with the correct ReAct format
+        # prompt template with the correct ReAct format and chat history
         prompt = PromptTemplate.from_template(
             """You are a helpful news assistant that can search for and summarize recent news.
             Always be conversational and friendly in your responses.
@@ -166,6 +166,9 @@ class NewsAgentService:
             2. Summarize the key points
             3. Add your own insights about the news
             4. Be concise yet informative
+            
+            Previous conversation history:
+            {chat_history}
             
             Available tools: {tools}
             
@@ -234,7 +237,15 @@ class NewsAgentService:
         """Generate a response to the user's query"""
         try:
             # Use the agent executor with just the query
-            response = self.agent_executor.invoke({"input": query})
+            # Update the agent to use the current conversation history from memory
+            memory_variables = self.memory.load_memory_variables({})
+            agent_context = memory_variables.get("history", "")
+            
+            # Execute the agent with context from memory
+            response = self.agent_executor.invoke({
+                "input": query,
+                "chat_history": agent_context
+            })
             
             # Add the interaction to memory
             self.memory.chat_memory.add_user_message(query)
