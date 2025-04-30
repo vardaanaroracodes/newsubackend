@@ -236,15 +236,19 @@ class NewsAgentService:
     def generate_response(self, query: str) -> Dict[str, Any]:
         """Generate a response to the user's query"""
         try:
-            # Use the agent executor with just the query
-            # Update the agent to use the current conversation history from memory
-            memory_variables = self.memory.load_memory_variables({})
-            agent_context = memory_variables.get("history", "")
+            # Format the conversation history in a structured way the model can understand
+            chat_history = ""
+            if self.memory.chat_memory.messages:
+                for message in self.memory.chat_memory.messages:
+                    if message.type == 'human':
+                        chat_history += f"User: {message.content}\n"
+                    else:
+                        chat_history += f"Assistant: {message.content}\n"
             
-            # Execute the agent with context from memory
+            # Execute the agent with properly formatted chat history
             response = self.agent_executor.invoke({
                 "input": query,
-                "chat_history": agent_context
+                "chat_history": chat_history
             })
             
             # Add the interaction to memory

@@ -185,17 +185,26 @@ def ask_session(session_id):
     
     # Get message history (might be empty for new sessions)
     history = get_messages(session_id, user_id)
+    logger.info(f"Loading {len(history)} messages from session {session_id}")
     
     # Clear current agent memory and load history
     agent.memory.clear()
     for msg in history:
         if msg['role'] == 'user':
             agent.memory.chat_memory.add_user_message(msg['content'])
-        else:
+            logger.debug(f"Added user message to memory: {msg['content'][:50]}...")
+        elif msg['role'] == 'ai':
             agent.memory.chat_memory.add_ai_message(msg['content'])
-            
+            logger.debug(f"Added AI message to memory: {msg['content'][:50]}...")
+    
+    # Log memory state for debugging        
+    memory_messages = agent.memory.chat_memory.messages
+    logger.info(f"Agent memory now has {len(memory_messages)} messages")
+    
     # Store user message and generate response
     add_message(session_id, 'user', user_query)
+    
+    # Generate response with history context
     result = agent.generate_response(user_query)
     ai_resp = result.get('response')
     add_message(session_id, 'ai', ai_resp)
