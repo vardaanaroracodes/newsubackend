@@ -515,6 +515,48 @@ def get_tracked_query_details(query_id):
         # Convert ObjectId to string for JSON serialization
         tracked_query['_id'] = str(tracked_query['_id'])
         
+        # Restructure the tracking_history if it exists
+        if include_history and 'tracking_history' in tracked_query and tracked_query['tracking_history']:
+            # Sort history by date (newest first) if not already sorted
+            tracking_history = sorted(
+                tracked_query['tracking_history'], 
+                key=lambda x: x.get('date', ''), 
+                reverse=True
+            )
+            
+            # Extract the latest update and add it as a separate field for easy access in UI
+            # This helps separate current tracking information from historical data
+            latest_update = tracking_history[0]
+            
+            # Add latest update info directly to the tracked_query root level
+            # This flattens the structure to make the latest data easier to access
+            tracked_query['summary'] = latest_update.get('summary')
+            tracked_query['update_date'] = latest_update.get('date')
+            tracked_query['sources'] = latest_update.get('sources', {})
+            tracked_query['changes'] = latest_update.get('changes')
+            
+            # Collect all sources from previous updates into a single archived_sources object
+            # This simplifies history management by focusing only on source archives
+            # rather than keeping full historical entries
+            archived_sources = {}
+            for history_item in tracking_history[1:]:
+                sources = history_item.get('sources', {})
+                for source_name, source_data in sources.items():
+                    # Add timestamp to help identify when this source was relevant
+                    if source_data and isinstance(source_data, dict):
+                        source_data['archived_date'] = history_item.get('date')
+                    archived_sources[source_name] = source_data
+            
+            # Add archived sources to the tracked query
+            if archived_sources:
+                tracked_query['archived_sources'] = archived_sources
+            
+            # Remove the original tracking_history from the response
+            # This prevents duplication of data and simplifies the response structure
+            tracked_query.pop('tracking_history', None)
+            # Remove the latest_update field if it was added by previous version
+            tracked_query.pop('latest_update', None)
+        
         return jsonify({
             'success': True,
             'tracked_query': tracked_query
