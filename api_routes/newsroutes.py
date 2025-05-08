@@ -471,6 +471,7 @@ def get_tracked_query_details(query_id):
     
     try:
         from bson import ObjectId
+        import copy
         
         # Get the news_tracker database from the same MongoDB cluster
         db_name = "news_tracker"
@@ -490,21 +491,11 @@ def get_tracked_query_details(query_id):
                 'error': 'Invalid query ID format'
             }), 400
         
-        # Set the projection based on whether to include history
-        projection = None if include_history else {
-            "_id": 1, 
-            "user_id": 1, 
-            "query": 1, 
-            "is_active": 1, 
-            "created_at": 1, 
-            "updated_at": 1
-        }
-        
         # Find the tracked query document
         tracked_query = tracked_queries_collection.find_one({
             "_id": query_obj_id,
             "user_id": user_id
-        }, projection)
+        })
         
         if not tracked_query:
             return jsonify({
@@ -512,54 +503,108 @@ def get_tracked_query_details(query_id):
                 'error': 'Tracked query not found or unauthorized access'
             }), 404
         
+        # Create a copy of the query to modify before returning
+        result_query = copy.deepcopy(tracked_query)
+        
         # Convert ObjectId to string for JSON serialization
-        tracked_query['_id'] = str(tracked_query['_id'])
+        result_query['_id'] = str(result_query['_id'])
         
         # Restructure the tracking_history if it exists
-        if include_history and 'tracking_history' in tracked_query and tracked_query['tracking_history']:
-            # Sort history by date (newest first) if not already sorted
-            tracking_history = sorted(
-                tracked_query['tracking_history'], 
-                key=lambda x: x.get('date', ''), 
-                reverse=True
-            )
-            
-            # Extract the latest update and add it as a separate field for easy access in UI
-            # This helps separate current tracking information from historical data
-            latest_update = tracking_history[0]
-            
-            # Add latest update info directly to the tracked_query root level
-            # This flattens the structure to make the latest data easier to access
-            tracked_query['summary'] = latest_update.get('summary')
-            tracked_query['update_date'] = latest_update.get('date')
-            tracked_query['sources'] = latest_update.get('sources', {})
-            tracked_query['changes'] = latest_update.get('changes')
-            
-            # Collect all sources from previous updates into a single archived_sources object
-            # This simplifies history management by focusing only on source archives
-            # rather than keeping full historical entries
-            archived_sources = {}
-            for history_item in tracking_history[1:]:
-                sources = history_item.get('sources', {})
-                for source_name, source_data in sources.items():
-                    # Add timestamp to help identify when this source was relevant
-                    if source_data and isinstance(source_data, dict):
-                        source_data['archived_date'] = history_item.get('date')
-                    archived_sources[source_name] = source_data
-            
-            # Add archived sources to the tracked query
-            if archived_sources:
-                tracked_query['archived_sources'] = archived_sources
-            
-            # Remove the original tracking_history from the response
-            # This prevents duplication of data and simplifies the response structure
-            tracked_query.pop('tracking_history', None)
-            # Remove the latest_update field if it was added by previous version
-            tracked_query.pop('latest_update', None)
+        if include_history and 'tracking_history' in result_query and result_query['tracking_history']:
+            try:
+                logger.info(f"Transforming tracking history for query {query_id}, found {len(result_query['tracking_history'])} history items")
+                
+                # Sort history by date (newest first)
+                tracking_history = sorted(
+                    result_query['tracking_history'], 
+                    key=lambda x: x.get('date', ''), 
+                    reverse=True
+                )
+                
+                # Extract the latest update 
+                if tracking_history:
+                    latest_update = tracking_history[0]
+                    logger.info(f"Latest update date: {latest_update.get('date')}")
+                    
+                    # Add latest update fields directly to the result object
+                    result_query['summary'] = latest_update.get('summary')
+                    result_query['update_date'] = latest_update.get('date')
+                    
+                    # Handle sources - could be array or object
+                    sources = latest_update.get('sources', {})
+                    if isinstance(sources, list):
+                        # Transform array of sources into object with title keys
+                        sources_obj = {}
+                        for source in sources:
+                            if 'title' in source:
+                                sources_obj[source['title']] = source
+                        result_query['sources'] = sources_obj
+                        logger.info(f"Transformed array of {len(sources)} sources into object with title keys")
+                    else:
+                        # Already an object with keys
+                        result_query['sources'] = sources
+                    
+                    result_query['changes'] = latest_update.get('changes')
+                    
+                    # Collect all sources from previous updates into a single archived_sources object
+                    archived_sources = {}
+                    
+                    # Start from index 1 to skip the latest update
+                    for history_item in tracking_history[1:]:
+                        history_date = history_item.get('date')
+                        logger.info(f"Processing history item from date: {history_date}")
+                        
+                        hist_sources = history_item.get('sources', {})
+                        
+                        # Handle different source formats
+                        if isinstance(hist_sources, list):
+                            source_count = len(hist_sources)
+                            logger.info(f"Found {source_count} sources in array format")
+                            
+                            for source in hist_sources:
+                                if 'title' in source:
+                                    source_name = source['title']
+                                    source_data = dict(source)  # Create a copy
+                                    source_data['archived_date'] = history_item.get('date')
+                                    archived_sources[source_name] = source_data
+                                    logger.info(f"Added array source to archived_sources: {source_name}")
+                        else:
+                            source_count = len(hist_sources) if hist_sources else 0
+                            logger.info(f"Found {source_count} sources in object format")
+                            
+                            for source_name, source_data in hist_sources.items():
+                                # If source_data is a simple URL string, convert to object
+                                if isinstance(source_data, str):
+                                    source_data = {
+                                        "link": source_data,
+                                        "archived_date": history_item.get('date')
+                                    }
+                                    logger.info(f"Converted string source to object: {source_name}")
+                                # If it's already an object, add archived_date
+                                elif source_data and isinstance(source_data, dict):
+                                    source_data = dict(source_data)  # Create a copy
+                                    source_data['archived_date'] = history_item.get('date')
+                                    logger.info(f"Added archived_date to source object: {source_name}")
+                                    
+                                archived_sources[source_name] = source_data
+                    
+                    # Add archived sources if any exist
+                    source_count = len(archived_sources)
+                    logger.info(f"Total archived sources collected: {source_count}")
+                    if archived_sources:
+                        result_query['archived_sources'] = archived_sources
+                    
+                    # Remove the original tracking_history from the response
+                    if 'tracking_history' in result_query:
+                        del result_query['tracking_history']
+                        logger.info("Removed tracking_history from response")
+            except Exception as e:
+                logger.error(f"Error transforming tracking history: {str(e)}", exc_info=True)
+                # If transformation fails, return the original query with tracking_history
         
         return jsonify({
             'success': True,
-            'tracked_query': tracked_query
+            'tracked_query': result_query
         })
         
     except Exception as e:
@@ -608,6 +653,14 @@ def create_tracked_query():
     try:
         from datetime import datetime
         
+        # Get the news agent to perform the initial query
+        agent = get_news_agent()
+        if agent is None:
+            return jsonify({
+                'success': False,
+                'error': 'Could not initialize news agent service. Check API keys.'
+            }), 500
+        
         # Get the news_tracker database from the same MongoDB cluster
         db_name = "news_tracker"
         collection_name = "tracked_queries"
@@ -617,26 +670,70 @@ def create_tracked_query():
         news_tracker_db = mongo_client[db_name]
         tracked_queries_collection = news_tracker_db[collection_name]
         
-        # Create the tracked query document
-        new_tracked_query = {
-            "user_id": user_id,
-            "query": query,
-            "is_active": True,
-            "created_at": datetime.utcnow(),
-            "updated_at": datetime.utcnow(),
-            "tracking_history": []  # Initialize with empty history
-        }
-        
-        # Insert the document
-        result = tracked_queries_collection.insert_one(new_tracked_query)
-        
-        logger.info(f"Created tracked query with ID: {result.inserted_id} for user_id: {user_id}")
-        
-        return jsonify({
-            'success': True,
-            'message': 'Tracked query created successfully',
-            'tracked_query_id': str(result.inserted_id)
-        })
+        # Perform the initial tracking query
+        try:
+            logger.info(f"Performing initial tracking query: '{query}'")
+            result = agent.generate_response(query)
+            
+            # Extract response and sources
+            summary = result.get('response', 'No summary available')
+            sources = result.get('sources', {})
+            
+            # Create initial tracking history entry
+            now = datetime.utcnow()
+            initial_history = [{
+                'date': now,
+                'summary': summary,
+                'sources': sources,
+                'changes': None  # No changes for the first entry
+            }]
+            
+            # Create the tracked query document with initial history
+            new_tracked_query = {
+                "user_id": user_id,
+                "query": query,
+                "is_active": True,
+                "created_at": now,
+                "updated_at": now,
+                "tracking_history": initial_history
+            }
+            
+            # Insert the document
+            result = tracked_queries_collection.insert_one(new_tracked_query)
+            query_id = result.inserted_id
+            
+            logger.info(f"Created tracked query with ID: {query_id} for user_id: {user_id} with initial tracking data")
+            
+            return jsonify({
+                'success': True,
+                'message': 'Tracked query created and initial tracking performed',
+                'tracked_query_id': str(query_id)
+            })
+            
+        except Exception as e:
+            logger.error(f"Error performing initial tracking query: {str(e)}")
+            
+            # If the tracking query fails, still create the document but without any history
+            new_tracked_query = {
+                "user_id": user_id,
+                "query": query,
+                "is_active": True,
+                "created_at": datetime.utcnow(),
+                "updated_at": datetime.utcnow(),
+                "tracking_history": []  # Empty history
+            }
+            
+            # Insert the document
+            result = tracked_queries_collection.insert_one(new_tracked_query)
+            
+            logger.info(f"Created tracked query with ID: {result.inserted_id} for user_id: {user_id} (without initial tracking)")
+            
+            return jsonify({
+                'success': True,
+                'message': 'Tracked query created but initial tracking failed',
+                'tracked_query_id': str(result.inserted_id),
+                'error_details': str(e)
+            })
         
     except Exception as e:
         logger.error(f"Error creating tracked query: {str(e)}")
@@ -719,6 +816,258 @@ def delete_tracked_query(query_id):
         return jsonify({
             'success': False,
             'error': 'An error occurred while deleting the tracked query',
+            'details': str(e)
+        }), 500
+
+@news_bp.route('/tracked-queries/<query_id>/update', methods=['POST'])
+@require_api_key
+def update_tracked_query(query_id):
+    """
+    Manually trigger an update for a tracked query
+    
+    Path parameters:
+        query_id: ID of the tracked query to update
+        
+    Expects JSON with:
+        user_id: ID of the user (for validation)
+        
+    Returns:
+        JSON with success status and updated tracking information
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({
+            'success': False,
+            'error': 'Missing request body'
+        }), 400
+    
+    user_id = data.get('user_id')
+    
+    if not user_id:
+        return jsonify({
+            'success': False,
+            'error': 'Missing user_id parameter'
+        }), 400
+    
+    try:
+        from bson import ObjectId
+        from datetime import datetime
+        import difflib
+        
+        # Get the news agent to perform the query
+        agent = get_news_agent()
+        if agent is None:
+            return jsonify({
+                'success': False,
+                'error': 'Could not initialize news agent service. Check API keys.'
+            }), 500
+        
+        # Get the news_tracker database
+        db_name = "news_tracker"
+        collection_name = "tracked_queries"
+        
+        # Use the PyMongo client to access database
+        mongo_client = mongo.cx
+        news_tracker_db = mongo_client[db_name]
+        tracked_queries_collection = news_tracker_db[collection_name]
+        
+        # Check if the query_id is valid
+        try:
+            query_obj_id = ObjectId(query_id)
+        except Exception:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid query ID format'
+            }), 400
+        
+        # Find the tracked query document
+        tracked_query = tracked_queries_collection.find_one({
+            "_id": query_obj_id,
+            "user_id": user_id
+        })
+        
+        if not tracked_query:
+            return jsonify({
+                'success': False,
+                'error': 'Tracked query not found or unauthorized access'
+            }), 404
+        
+        # Get the query text
+        query_text = tracked_query.get('query')
+        if not query_text:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid tracked query: missing query text'
+            }), 500
+        
+        # Get the previous summary if available
+        tracking_history = tracked_query.get('tracking_history', [])
+        previous_summary = None
+        if tracking_history:
+            # Sort by date to get the most recent
+            sorted_history = sorted(tracking_history, key=lambda x: x.get('date', ''), reverse=True)
+            previous_summary = sorted_history[0].get('summary', '')
+        
+        # Perform the tracking query
+        logger.info(f"Performing manual tracking update for query: '{query_text}'")
+        result = agent.generate_response(query_text)
+        
+        # Extract response and sources
+        new_summary = result.get('response', 'No summary available')
+        sources = result.get('sources', {})
+        
+        # Calculate changes if previous summary exists
+        changes = None
+        if previous_summary:
+            diff = difflib.ndiff(previous_summary.splitlines(), new_summary.splitlines())
+            added = []
+            removed = []
+            
+            for line in diff:
+                if line.startswith('+ '):
+                    added.append(line[2:])
+                elif line.startswith('- '):
+                    removed.append(line[2:])
+            
+            changes = {
+                'new': ' '.join(added) if added else None,
+                'removed': ' '.join(removed) if removed else None
+            }
+        
+        # Create new tracking history entry
+        now = datetime.utcnow()
+        new_history_entry = {
+            'date': now,
+            'summary': new_summary,
+            'sources': sources,
+            'changes': changes
+        }
+        
+        # Update the document with new tracking entry
+        tracked_queries_collection.update_one(
+            {"_id": query_obj_id},
+            {
+                "$push": {"tracking_history": new_history_entry},
+                "$set": {"updated_at": now}
+            }
+        )
+        
+        logger.info(f"Updated tracked query with ID: {query_id} for user_id: {user_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': 'Tracked query updated successfully',
+            'tracked_query_id': str(query_id),
+            'summary': new_summary,
+            'sources': sources
+        })
+        
+    except Exception as e:
+        logger.error(f"Error updating tracked query: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to update tracked query',
+            'details': str(e)
+        }), 500
+
+@news_bp.route('/tracked-queries/<query_id>/toggle-status', methods=['PATCH'])
+@require_api_key
+def toggle_tracked_query_status(query_id):
+    """
+    Toggle the active status of a tracked query
+    
+    Path parameters:
+        query_id: ID of the tracked query to toggle
+        
+    Expects JSON with:
+        user_id: ID of the user (for validation)
+        is_active: Boolean indicating the new status (optional, if not provided will toggle current value)
+        
+    Returns:
+        JSON with success status and updated status
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({
+            'success': False,
+            'error': 'Missing request body'
+        }), 400
+    
+    user_id = data.get('user_id')
+    
+    if not user_id:
+        return jsonify({
+            'success': False,
+            'error': 'Missing user_id parameter'
+        }), 400
+    
+    # is_active is optional, if not provided we'll toggle the current value
+    is_active = data.get('is_active')
+    
+    try:
+        from bson import ObjectId
+        from datetime import datetime
+        
+        # Get the news_tracker database
+        db_name = "news_tracker"
+        collection_name = "tracked_queries"
+        
+        # Use the PyMongo client to access database
+        mongo_client = mongo.cx
+        news_tracker_db = mongo_client[db_name]
+        tracked_queries_collection = news_tracker_db[collection_name]
+        
+        # Check if the query_id is valid
+        try:
+            query_obj_id = ObjectId(query_id)
+        except Exception:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid query ID format'
+            }), 400
+        
+        # Find the tracked query document
+        tracked_query = tracked_queries_collection.find_one({
+            "_id": query_obj_id,
+            "user_id": user_id
+        })
+        
+        if not tracked_query:
+            return jsonify({
+                'success': False,
+                'error': 'Tracked query not found or unauthorized access'
+            }), 404
+        
+        # Determine the new status value
+        current_status = tracked_query.get('is_active', True)
+        new_status = not current_status if is_active is None else is_active
+        
+        # Update the document
+        tracked_queries_collection.update_one(
+            {"_id": query_obj_id},
+            {
+                "$set": {
+                    "is_active": new_status,
+                    "updated_at": datetime.utcnow()
+                }
+            }
+        )
+        
+        status_text = "activated" if new_status else "deactivated"
+        logger.info(f"Tracked query {query_id} {status_text} for user_id: {user_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Tracked query {status_text} successfully',
+            'tracked_query_id': str(query_id),
+            'is_active': new_status
+        })
+        
+    except Exception as e:
+        logger.error(f"Error toggling tracked query status: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to toggle tracked query status',
             'details': str(e)
         }), 500
 
