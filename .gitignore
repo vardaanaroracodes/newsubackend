@@ -14,3 +14,5 @@ build/
 *.egg-info/
 .env
 env
+API_DOCUMENTATION.md
+tracking_routes_documentation.md

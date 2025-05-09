@@ -156,7 +156,7 @@ class NewsAgentService:
     def _create_agent(self):
         """Create the LangChain agent with the appropriate prompt."""
         
-        # prompt template with the correct ReAct format
+        # prompt template with the correct ReAct format and chat history
         prompt = PromptTemplate.from_template(
             """You are a helpful news assistant that can search for and summarize recent news.
             Always be conversational and friendly in your responses.
@@ -165,7 +165,9 @@ class NewsAgentService:
             1. Search for the most relevant news articles
             2. Summarize the key points
             3. Add your own insights about the news
-            4. Be concise yet informative
+            4. Be concise yet informative            
+            Previous conversation history:
+            {chat_history}
             
             Available tools: {tools}
             
@@ -233,8 +235,20 @@ class NewsAgentService:
     def generate_response(self, query: str) -> Dict[str, Any]:
         """Generate a response to the user's query"""
         try:
-            # Use the agent executor with just the query
-            response = self.agent_executor.invoke({"input": query})
+            # Format the conversation history in a structured way the model can understand
+            chat_history = ""
+            if self.memory.chat_memory.messages:
+                for message in self.memory.chat_memory.messages:
+                    if message.type == 'human':
+                        chat_history += f"User: {message.content}\n"
+                    else:
+                        chat_history += f"Assistant: {message.content}\n"
+            
+            # Execute the agent with properly formatted chat history
+            response = self.agent_executor.invoke({
+                "input": query,
+                "chat_history": chat_history
+            })
             
             # Add the interaction to memory
             self.memory.chat_memory.add_user_message(query)
