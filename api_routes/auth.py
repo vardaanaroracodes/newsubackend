@@ -13,7 +13,6 @@ def require_api_key(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         API_KEY=os.getenv('API_KEY')
-        print(API_KEY)
         api_key = request.headers.get('API-AUTH-KEY')
         if api_key and api_key == API_KEY:
             return f(*args, **kwargs)
