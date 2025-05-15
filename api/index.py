@@ -5,8 +5,16 @@ from flask import Flask
 from flask_cors import CORS
 from api_routes.newsroutes import news_bp
 from config import Config
+from extensions import mongo, jwt
+
 app = Flask(__name__)
 app.config.from_object(Config)
+
+# Initialize MongoDB
+mongo.init_app(app)
+
+# Initialize JWT
+jwt.init_app(app)
 
 CORS(app)
 
