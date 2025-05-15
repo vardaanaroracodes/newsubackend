@@ -135,9 +135,7 @@ class NewsAgentService:
             1. Search for the most relevant news articles
             2. Summarize the key points
             3. Add your own insights about the news
-            4. Be concise yet informative
-            5. For news related to "India","India War Pakistan" and "J&K attacks", consider articles like "The Hindu", "Times of India" and Government press releases from Ministry of External Affairs and Other Government fact-checked sources as credible sources.
-            
+            4. Be concise yet informative            
             Previous conversation history:
             {chat_history}
             
