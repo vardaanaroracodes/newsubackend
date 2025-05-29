@@ -15,6 +15,7 @@ The API is organized into several modules:
 1. **News Agent Routes** - AI-powered news search and conversation
 2. **Session Management Routes** - Managing persistent chat sessions
 3. **News Tracking Routes** - Monitoring specific news topics over time
+4. **Search Routes** - Searching through user conversations
 
 ## 1. News Agent Routes
 
@@ -402,5 +403,42 @@ All responses follow a consistent format:
   "success": true/false,
   "message/error": "Description",
   "details": "Error details (only on error)"
+}
+```
+
+## 4. Search Routes
+
+### 4.1. `/api/search` (GET)
+
+Searches through user's conversations and titles.
+
+**Query Parameters:**
+- `query` (required): The search term to look for
+- `user_id` (required): The user's ID
+
+**Response:**
+```json
+{
+  "success": true,
+  "results": [
+    {
+      "session_id": "550e8400-e29b-41d4-a716-446655440000",
+      "title": "Latest AI Developments",
+      "created_at": "2025-05-01T10:30:00Z",
+      "matched_messages": [
+        {
+          "role": "user",
+          "timestamp": "2025-05-01T10:31:00Z",
+          "preview": "Tell me about recent AI breakthroughs..."
+        },
+        {
+          "role": "ai",
+          "timestamp": "2025-05-01T10:31:05Z",
+          "preview": "Recent AI breakthroughs include advancements in language models and computer vision..."
+        }
+      ]
+    }
+  ],
+  "count": 1
 }
 ```
