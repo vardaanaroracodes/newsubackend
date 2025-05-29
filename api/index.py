@@ -5,6 +5,7 @@ os.environ['OAUTHLIB_INSECURE_TRANSPORT'] = '1'
 from flask import Flask
 from flask_cors import CORS
 from api_routes.newsroutes import news_bp
+from api_routes.searchroutes import search_bp
 from config import Config
 from extensions import mongo, jwt
 from flask_dance.contrib.google import make_google_blueprint
@@ -30,6 +31,7 @@ from api_routes import auth
 
 app.register_blueprint(auth.auth_bp, url_prefix='/api/auth')
 app.register_blueprint(news_bp, url_prefix='/api/news')
+app.register_blueprint(search_bp, url_prefix='/api/search')
 
 if __name__ == '__main__':
     app.run(debug=True,port=5001)
