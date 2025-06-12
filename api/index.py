@@ -17,8 +17,7 @@ mongo.init_app(app)
 # Initialize JWT
 jwt.init_app(app)
 
-CORS(app)
-
+CORS(app, supports_credentials=True, allow_headers=["Content-Type", "Auth-Session-Id"])
 from api_routes import auth
 
 app.register_blueprint(auth.auth_bp, url_prefix='/api/auth')
