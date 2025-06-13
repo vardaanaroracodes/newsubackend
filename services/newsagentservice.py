@@ -2,7 +2,6 @@ import os
 import logging
 from typing import List, Dict, Any, Optional
 from datetime import datetime
-
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain.prompts import PromptTemplate
@@ -15,35 +14,24 @@ from langchain.agents.output_parsers import ReActSingleInputOutputParser
 import json
 
 logger = logging.getLogger(__name__)
-
-"""
-Serper News Search Tool Description:
-1. Api Abstraction 2. Type Safet 3. Rate limiting management
-"""
 class SerperNewsSearchTool:
-    """Tool for searching news using Serper API."""
-    
     def __init__(self, api_key):
-        # Convert tuple to string if necessary
         if isinstance(api_key, tuple):
             self.api_key = api_key[0]
         else:
             self.api_key = api_key
         print(self.api_key)
         self.headers = {
-            'X-API-KEY': str(self.api_key),  # Ensure string type****
+            'X-API-KEY': str(self.api_key),
             'Content-Type': 'application/json'
         }
         self.url = "https://google.serper.dev/search" # goes and searches here(whatever query you perform)
     
     def search(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
         """
-        Search for news using Serper API
-        
         Args:
             query (str): The search query
-            limit (int): Maximum number of results to return
-            
+            limit (int): Maximum number of results to return  
         Returns:
             List[Dict[str, Any]]: List of news articles
         """
@@ -54,14 +42,10 @@ class SerperNewsSearchTool:
                 "q": query,
                 "search_type": "news" 
             })
-            
             response = requests.request("POST", self.url, headers=self.headers, data=payload)
-            response.raise_for_status()#if there is any exception this will trigger
-            
+            response.raise_for_status()
             data = response.json()
-            
-            #the response structure is different, adjust accordingly
-            results = data.get("organic", [])  #use 'organic' instead of 'news'
+            results = data.get("organic", []) #use 'organic' instead of 'news'
             return results[:limit]
             
         except Exception as e:
@@ -76,13 +60,6 @@ class SerperNewsSearchTool:
     so call is the best way to do that.
     """
     def __call__(self, query: str) -> str:
-        """
-        Call the tool and return formatted results
-        Args:
-            query (str): The search query
-        Returns:
-            str: Formatted news results
-        """
         results = self.search(query)
         
         if not results:
@@ -96,7 +73,6 @@ class SerperNewsSearchTool:
             source = article.get("source", "Unknown source")
             date = article.get("date", "")
             snippet = article.get("snippet", "No description available")
-            
             formatted_results += f"{i}. **{title}**\n"
             formatted_results += f"   Source: {source}"
             if date:
@@ -105,6 +81,7 @@ class SerperNewsSearchTool:
             formatted_results += f"   Link: {link}\n\n"
         
         return formatted_results
+    
 
 
 from langchain.memory import ConversationBufferMemory
@@ -117,13 +94,6 @@ class NewsAgentService:
     """Service that provides a conversational news agent using LangChain, Gemini, and Serper."""
     
     def __init__(self, GOOGLE_API_KEY: str, serper_api_key: str):
-        """
-        Initialize the news agent service
-        
-        Args:
-            GOOGLE_API_KEY (str): API key for Google Gemini
-            serper_api_key (str): API key for Serper
-        """
         self.GOOGLE_API_KEY = GOOGLE_API_KEY
         self.serper_api_key = serper_api_key
         
@@ -201,36 +171,6 @@ class NewsAgentService:
             handle_parsing_errors=True,
             max_iterations=3
         )
-
-    def prepare_context(self, search_results: List[Dict[str, Any]]) -> str:
-        """
-        Prepare context from search results
-        
-        Args:
-            search_results (List[Dict[str, Any]]): List of news articles
-            
-        Returns:
-            str: Formatted context string
-        """
-        if not search_results:
-            return "No relevant news articles found."
-            
-        context = "Here are the relevant news articles:\n\n"
-        
-        for i, article in enumerate(search_results, 1):
-            title = article.get("title", "No title")
-            snippet = article.get("snippet", "No description available")
-            source = article.get("source", "Unknown source")
-            date = article.get("date", "")
-            
-            context += f"{i}. {title}\n"
-            context += f"   {snippet}\n"
-            context += f"   Source: {source}"
-            if date:
-                context += f" | {date}"
-            context += "\n\n"
-            
-        return context
 
     def generate_response(self, query: str) -> Dict[str, Any]:
         """Generate a response to the user's query"""

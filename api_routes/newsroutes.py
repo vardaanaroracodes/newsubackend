@@ -1,5 +1,5 @@
 from flask import Blueprint, request, jsonify, current_app
-from .auth import require_api_key  # need this for server to server authentication
+from .auth import require_api_key, require_session  # need this for server to server authentication
 import logging
 import os
 from dotenv import load_dotenv
@@ -77,7 +77,8 @@ def get_title_for_query(query):
         return "News Conversation"
 
 @news_bp.route('/ask', methods=['POST'])
-@require_api_key #decorator
+# @require_api_key #decorator
+@require_session
 def ask_news_agent():
     """
     API endpoint to ask questions to the news agent
