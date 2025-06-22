@@ -117,14 +117,13 @@ def ask_news_agent():
             'details': str(e)
         }), 500
         
-        
 
 @news_bp.route('/ask/tracker', methods=['POST'])
 @require_api_key #decorator
 # @require_session
-def ask_news_agent():
+def ask_news_agent_tracker():
     """
-    API endpoint to ask questions to the news agent
+    API endpoint to ask questions to the news agent (tracker)
     
     Expects JSON with 'query' field
     
@@ -148,7 +147,6 @@ def ask_news_agent():
     user_query = data['query']
     
     try:
-       
         result = agent.generate_response(user_query)
         return jsonify(result)
         
