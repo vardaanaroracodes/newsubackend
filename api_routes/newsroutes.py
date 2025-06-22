@@ -116,6 +116,49 @@ def ask_news_agent():
             'error': 'An error occurred while processing your request',
             'details': str(e)
         }), 500
+        
+        
+
+@news_bp.route('/ask/tracker', methods=['POST'])
+@require_api_key #decorator
+# @require_session
+def ask_news_agent():
+    """
+    API endpoint to ask questions to the news agent
+    
+    Expects JSON with 'query' field
+    
+    Returns:
+        JSON response with the agent's answer
+    """
+    agent = get_news_agent()
+    if agent is None:
+        return jsonify({
+            'success': False,
+            'error': 'Could not initialize news agent service. Check API keys.'
+        }), 500
+    
+    data = request.get_json()
+    if not data or 'query' not in data:
+        return jsonify({
+            'success': False,
+            'error': 'Missing query parameter in request body'
+        }), 400
+    
+    user_query = data['query']
+    
+    try:
+       
+        result = agent.generate_response(user_query)
+        return jsonify(result)
+        
+    except Exception as e:
+        logger.error(f"Error processing news query: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'An error occurred while processing your request',
+            'details': str(e)
+        }), 500
 
 @news_bp.route('/clear', methods=['POST'])
 @require_api_key 
