@@ -98,7 +98,7 @@ class NewsAgentService:
         self.serper_api_key = serper_api_key
         
         self.llm = ChatGoogleGenerativeAI(
-            model="gemini-1.5-flash",
+            model="gemini-2.5-flash",
             GOOGLE_API_KEY=self.GOOGLE_API_KEY,
             temperature=0.7,
             convert_system_message_to_human=True
