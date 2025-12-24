@@ -13,7 +13,6 @@ certifi==2025.1.31
 cffi==1.17.1
 charset-normalizer==3.4.1
 clerk-backend-api==2.2.0
-clerk-sdk-python==0.1.0
 click==8.1.8
 cryptography==44.0.3
 dnspython==2.7.0
@@ -63,9 +62,6 @@ pyasn1==0.6.1
 pyasn1_modules==0.4.1
 pycares==4.5.0
 pycparser==2.22
-pydantic==2.11.4
-pydantic_core==2.33.2
-PyJWT==2.10.1
 pymongo==4.11.1
 pyparsing==3.2.1
 python-dotenv==1.0.1
