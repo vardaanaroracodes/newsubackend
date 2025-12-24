@@ -57,11 +57,22 @@ class NewsVerificationTool:
         'government', 'ministry', 'minister', 'parliament', 'lok sabha', 'rajya sabha',
         'prime minister', 'pm modi', 'president', 'cabinet', 'central government',
         'army', 'navy', 'air force', 'defence', 'defense', 'military', 'armed forces',
-        'pib', 'ministry of', 'govt', 'national security', 'border', 'policy',
+        'pib', 'ministry of', 'govt', 'national security', 'border',
         'legislation', 'bill passed', 'amendment', 'supreme court', 'election commission',
         'rbi', 'reserve bank', 'finance ministry', 'budget', 'gst', 'tax policy',
         'foreign affairs', 'diplomacy', 'bilateral', 'treaty', 'mea',
-        'home ministry', 'mha', 'law and order', 'national'
+        'home ministry', 'mha', 'law and order', 'national policy', 'government policy',
+        'state government', 'chief minister', 'governor', 'niti aayog'
+    ]
+
+    # Keywords that indicate NON-government news (entertainment, sports, etc.)
+    NON_GOVERNMENT_KEYWORDS = [
+        'bollywood', 'hollywood', 'movie', 'film', 'actor', 'actress', 'celebrity',
+        'cricket', 'ipl', 'football', 'sports', 'match', 'tournament', 'player',
+        'music', 'album', 'song', 'concert', 'show', 'series', 'web series',
+        'entertainment', 'box office', 'release', 'trailer', 'premier',
+        'fashion', 'lifestyle', 'wedding', 'birthday', 'social media',
+        'instagram', 'twitter', 'viral', 'trending'
     ]
 
     def __init__(self):
@@ -86,7 +97,13 @@ class NewsVerificationTool:
             snippet = result.get('snippet', '').lower()
             text_to_check += f" {title} {snippet}"
 
-        # Check if any national keyword is present
+        # First, check if it contains non-government keywords (entertainment/sports)
+        # If yes, immediately return False
+        for keyword in self.NON_GOVERNMENT_KEYWORDS:
+            if keyword in text_to_check:
+                return False
+
+        # Then check if any national keyword is present
         for keyword in self.NATIONAL_KEYWORDS:
             if keyword in text_to_check:
                 return True
