@@ -169,7 +169,7 @@ class NewsAgentService:
             tools=self.tools,
             verbose=True,
             handle_parsing_errors=True,
-            max_iterations=3
+            max_iterations=100
         )
 
     def generate_response(self, query: str) -> Dict[str, Any]:
