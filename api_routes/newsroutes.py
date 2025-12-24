@@ -149,6 +149,7 @@ def get_conversation_history():
 # Session management endpoints
 @news_bp.route('/session/start', methods=['POST'])
 @require_api_key
+@require_session
 def start_session():
     """Start a new chat session"""
     data = request.get_json() or {}
@@ -172,6 +173,7 @@ def start_session():
 
 @news_bp.route('/session/<session_id>/ask', methods=['POST'])
 @require_api_key
+@require_session
 def ask_session(session_id):
     """Ask within an existing session"""
     data = request.get_json() or {}
@@ -245,6 +247,7 @@ def ask_session(session_id):
 
 @news_bp.route('/sessions', methods=['GET'])
 @require_api_key
+@require_session
 def get_sessions_route():
     """List all chat sessions for a user"""
     user_id = request.args.get('user_id')

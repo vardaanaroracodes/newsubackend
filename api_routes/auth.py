@@ -16,7 +16,7 @@ clerk = Clerk(bearer_auth=os.getenv('CLERK_SECRET_KEY'))
 def require_session(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        session_token = request.headers.get('Auth-Session-Id')
+        session_token = request.headers.get('authorization')
         if not session_token:
             return jsonify({'message': 'No session token provided'}), 401
         
