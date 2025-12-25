@@ -29,8 +29,12 @@ def require_session(f):
             if session_data.get('status') != 'active':
                 return jsonify({'message': 'Session is not active'}), 401
             
-            # Add user_id to request context for use in routes
+            # Add user_id to request context for use in routes (from verified session)
+            # This is the secure way - user_id comes from Clerk's verified session, not from client
             request.user_id = session_data.get('user_id')
+            if not request.user_id:
+                return jsonify({'message': 'User ID not found in session'}), 401
+            
             # Add the full session data to request context if needed
             request.session_data = session_data
             

@@ -153,11 +153,14 @@ def get_conversation_history():
 def start_session():
     """Start a new chat session"""
     data = request.get_json() or {}
-    if 'user_id' not in data:
-        return jsonify({'success': False, 'error': 'Missing user_id'}), 400
+    
+    # Use user_id from verified session (set by require_session decorator)
+    user_id = getattr(request, 'user_id', None)
+    if not user_id:
+        return jsonify({'success': False, 'error': 'User ID not found in session'}), 401
     
     # Create session with default title (will be updated when first message is sent)
-    session_id = create_session(data['user_id'])
+    session_id = create_session(user_id)
     
     # If initial query is provided, use it to generate a title
     initial_title = "New Conversation"
@@ -179,10 +182,12 @@ def ask_session(session_id):
     data = request.get_json() or {}
     if 'query' not in data:
         return jsonify({'success': False, 'error': 'Missing query'}), 400
-    if 'user_id' not in data:
-        return jsonify({'success': False, 'error': 'Missing user_id'}), 400
     
-    user_id = data['user_id']
+    # Use user_id from verified session (set by require_session decorator)
+    user_id = getattr(request, 'user_id', None)
+    if not user_id:
+        return jsonify({'success': False, 'error': 'User ID not found in session'}), 401
+    
     user_query = data['query']
     
     # Retrieve and seed conversation memory from DB
@@ -250,9 +255,10 @@ def ask_session(session_id):
 @require_session
 def get_sessions_route():
     """List all chat sessions for a user"""
-    user_id = request.args.get('user_id')
+    # Use user_id from verified session (set by require_session decorator)
+    user_id = getattr(request, 'user_id', None)
     if not user_id:
-        return jsonify({'success': False, 'error': 'Missing user_id parameter'}), 400
+        return jsonify({'success': False, 'error': 'User ID not found in session'}), 401
         
     sessions = list_sessions(user_id)
     return jsonify({'success': True, 'sessions': sessions})
